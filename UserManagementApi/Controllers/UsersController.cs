@@ -1,135 +1,108 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UserManagementApi.Models;
 
 namespace UserManagementApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/users")]
+[Authorize]
 public class UsersController : ControllerBase
 {
-    private static readonly List<User> Users = new()
-    {
-        new User
-        {
-            Id = 1,
-            Name = "John Doe",
-            Email = "john@example.com",
-            Age = 30
-        },
-        new User
-        {
-            Id = 2,
-            Name = "Jane Smith",
-            Email = "jane@example.com",
-            Age = 28
-        }
-    };
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    private static int _nextId = 3;
-
-    // GET: api/users
-    [HttpGet]
-    public ActionResult<IEnumerable<User>> GetUsers()
+    public UsersController(
+        UserManager<ApplicationUser> userManager)
     {
-        return Ok(Users);
+        _userManager = userManager;
     }
 
-    // GET: api/users/1
-    [HttpGet("{id}")]
-    public ActionResult<User> GetUser(int id)
+
+    // -----------------------------------------------------
+    // Current authenticated user
+    // GET /api/users/me
+    // -----------------------------------------------------
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMe()
     {
-        User? user = Users.FirstOrDefault(u => u.Id == id);
+        ApplicationUser? user =
+            await _userManager.GetUserAsync(User);
 
         if (user == null)
         {
-            return NotFound(new
-            {
-                message = $"User with ID {id} was not found."
-            });
+            return Unauthorized();
+        }
+
+        IList<string> roles =
+            await _userManager.GetRolesAsync(user);
+
+        return Ok(new
+        {
+            user.Id,
+            user.Name,
+            user.Email,
+            user.Age,
+            roles
+        });
+    }
+
+
+    // -----------------------------------------------------
+    // Get all users - ADMIN ONLY
+    // GET /api/users
+    // -----------------------------------------------------
+
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetUsers()
+    {
+        var users =
+            await _userManager
+                .Users
+                .Select(user => new
+                {
+                    user.Id,
+                    user.Name,
+                    user.Email,
+                    user.Age
+                })
+                .ToListAsync();
+
+        return Ok(users);
+    }
+
+
+    // -----------------------------------------------------
+    // Search user safely by email - ADMIN ONLY
+    // GET /api/users/search?email=...
+    // -----------------------------------------------------
+
+    [HttpGet("search")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SearchByEmail(
+        [FromQuery] string email)
+    {
+        var user =
+            await _userManager
+                .Users
+                .Where(user => user.Email == email)
+                .Select(user => new
+                {
+                    user.Id,
+                    user.Name,
+                    user.Email,
+                    user.Age
+                })
+                .FirstOrDefaultAsync();
+
+        if (user == null)
+        {
+            return NotFound();
         }
 
         return Ok(user);
-    }
-
-    // POST: api/users
-    [HttpPost]
-    public ActionResult<User> CreateUser(User user)
-    {
-        bool emailExists = Users.Any(
-            u => u.Email.Equals(
-                user.Email,
-                StringComparison.OrdinalIgnoreCase));
-
-        if (emailExists)
-        {
-            return Conflict(new
-            {
-                message = "A user with this email already exists."
-            });
-        }
-
-        user.Id = _nextId++;
-        Users.Add(user);
-
-        return CreatedAtAction(
-            nameof(GetUser),
-            new { id = user.Id },
-            user);
-    }
-
-    // PUT: api/users/1
-    [HttpPut("{id}")]
-    public IActionResult UpdateUser(int id, User updatedUser)
-    {
-        User? existingUser =
-            Users.FirstOrDefault(u => u.Id == id);
-
-        if (existingUser == null)
-        {
-            return NotFound(new
-            {
-                message = $"User with ID {id} was not found."
-            });
-        }
-
-        bool emailExists = Users.Any(
-            u => u.Id != id &&
-                 u.Email.Equals(
-                     updatedUser.Email,
-                     StringComparison.OrdinalIgnoreCase));
-
-        if (emailExists)
-        {
-            return Conflict(new
-            {
-                message = "Another user already uses this email."
-            });
-        }
-
-        existingUser.Name = updatedUser.Name;
-        existingUser.Email = updatedUser.Email;
-        existingUser.Age = updatedUser.Age;
-
-        return Ok(existingUser);
-    }
-
-    // DELETE: api/users/1
-    [HttpDelete("{id}")]
-    public IActionResult DeleteUser(int id)
-    {
-        User? user =
-            Users.FirstOrDefault(u => u.Id == id);
-
-        if (user == null)
-        {
-            return NotFound(new
-            {
-                message = $"User with ID {id} was not found."
-            });
-        }
-
-        Users.Remove(user);
-
-        return NoContent();
     }
 }

@@ -60,3 +60,36 @@ enhancing, debugging, and reviewing the API code.
 - .NET 8
 - ASP.NET Core Web API
 - Swagger / OpenAPI
+# User Management API - Security Project
+
+This project is an ASP.NET Core API developed as part of the
+Security and Authentication course.
+
+It demonstrates secure input validation, authentication,
+authorization, role-based access control, SQL injection prevention,
+XSS mitigation, password hashing, and automated security testing.
+
+## Technologies
+
+- ASP.NET Core
+- .NET 8
+- ASP.NET Core Identity
+- Entity Framework Core
+- SQLite
+- JWT Bearer Authentication
+- xUnit
+- Swagger / OpenAPI
+
+## Security Features
+
+### Input Validation
+
+ASP.NET Core Data Annotations are used to validate incoming data.
+
+User names are restricted to expected characters using validation
+rules. Invalid input is rejected before being stored.
+
+Example malicious input:
+
+```html
+<script>alert('XSS')</script>
