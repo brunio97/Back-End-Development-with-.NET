@@ -18,6 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
+builder.Services.AddMemoryCache();
+
 builder.Services.AddEndpointsApiExplorer();
 
 
@@ -224,16 +226,19 @@ using (var scope =
 {
     var database =
         scope.ServiceProvider
-            .GetRequiredService<
-                ApplicationDbContext>();
-
+            .GetRequiredService<ApplicationDbContext>();
 
     await database.Database.MigrateAsync();
-
 
     await SeedData.InitializeAsync(
         scope.ServiceProvider,
         app.Configuration);
+
+    if (app.Environment.IsDevelopment())
+    {
+        await OrderSeedData.InitializeAsync(
+            database);
+    }
 }
 
 
